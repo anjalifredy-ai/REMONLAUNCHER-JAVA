@@ -29,6 +29,7 @@ fun ModsScreen(viewModel: LauncherViewModel) {
 
     var searchQuery by remember { mutableStateOf("") }
     var selectedTab by remember { mutableIntStateOf(0) }
+    var contentType by remember { mutableStateOf("mod") } // mod | resourcepack | shader
     val tabs = listOf("Installed", "Modrinth", "CurseForge")
 
     Column(
@@ -59,14 +60,7 @@ fun ModsScreen(viewModel: LauncherViewModel) {
             placeholder = { Text("Search mods, resource packs, shaders...") },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
             singleLine = true,
-            shape = RoundedCornerShape(12.dp),
-            trailingIcon = {
-                if (searchQuery.isNotBlank() && selectedTab == 1) {
-                    IconButton(onClick = { viewModel.searchModrinth(searchQuery) }) {
-                        Icon(Icons.Default.Search, contentDescription = "Search")
-                    }
-                }
-            }
+            shape = RoundedCornerShape(12.dp)
         )
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -90,11 +84,14 @@ fun ModsScreen(viewModel: LauncherViewModel) {
             )
             1 -> ModrinthTab(
                 query = searchQuery,
+                contentType = contentType,
+                onContentTypeChange = { contentType = it },
                 state = modsState,
-                onSearch = { viewModel.searchModrinth(it) },
+                onSearch = { q, type -> viewModel.searchModrinth(q, type) },
                 onDownload = { hit ->
-                    viewModel.downloadMod(
+                    viewModel.downloadContent(
                         hit,
+                        projectType = contentType,
                         gameVersion = selectedProfile?.versionId,
                         loader = selectedProfile?.loader?.lowercase()?.takeIf { it != "vanilla" }
                     )
@@ -143,24 +140,46 @@ private fun InstalledModsList(
 @Composable
 private fun ModrinthTab(
     query: String,
+    contentType: String,
+    onContentTypeChange: (String) -> Unit,
     state: com.remom.launcher.ui.viewmodel.ModsUiState,
-    onSearch: (String) -> Unit,
+    onSearch: (String, String) -> Unit,
     onDownload: (ModrinthHit) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
+        // Content type chips
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            listOf(
+                "mod" to "Mods",
+                "resourcepack" to "Resource Packs",
+                "shader" to "Shaders"
+            ).forEach { (type, label) ->
+                FilterChip(
+                    selected = contentType == type,
+                    onClick = { onContentTypeChange(type) },
+                    label = { Text(label) }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Button(
-                onClick = { if (query.isNotBlank()) onSearch(query) },
+                onClick = { if (query.isNotBlank()) onSearch(query, contentType) },
                 colors = ButtonDefaults.buttonColors(containerColor = RemomAccent),
                 enabled = query.isNotBlank() && !state.isLoading
             ) {
                 Icon(Icons.Default.Download, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(if (state.isLoading) "Searching..." else "Search Modrinth")
+                Text(if (state.isLoading) "Searching..." else "Search")
             }
             if (state.downloading != null) {
                 Text("Downloading: ${state.downloading}", style = MaterialTheme.typography.bodySmall)
@@ -176,7 +195,7 @@ private fun ModrinthTab(
         if (state.searchResults.isEmpty() && !state.isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
-                    "Type a query and press Search.\nMods download straight into the selected profile folder.",
+                    "Search Modrinth → download goes straight into\nthe selected profile folder (no jhanjhat).",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
@@ -203,7 +222,7 @@ private fun ModrinthTab(
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                                 )
                                 Text(
-                                    "${hit.downloads} downloads • ${hit.author}",
+                                    "${hit.downloads} downloads • ${hit.author} • ${hit.project_type}",
                                     style = MaterialTheme.typography.labelSmall
                                 )
                             }
