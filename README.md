@@ -3,7 +3,7 @@
 **App Name:** RemomLauncher  
 **Platform:** Android (Mobile Minecraft: Java Edition Launcher)  
 **Theme:** Blue horizontal modern UI  
-**License:** LGPL-3.0 (planned, matching upstreams)
+**License:** LGPL-3.0
 
 > A feature-rich Minecraft: Java Edition launcher for Android, designed with a clean horizontal layout, deep integration with Modrinth & CurseForge, profile-based mod management, custom controls, Microsoft + Offline accounts, and performance-focused runtime support.
 
@@ -11,10 +11,28 @@ Inspired by **PojavLauncher / Amethyst** (core runtime) and **Battly Launcher** 
 
 ---
 
+## Current Status (11 Oct 2026)
+
+**Phase 0 – Scaffold COMPLETE**
+
+- Full Android project (Gradle + Kotlin + Jetpack Compose)
+- **Horizontal NavigationRail** layout (landscape-first, blue dark theme)
+- Screens: Home • Profiles • Mods • Accounts • Settings
+- Modrinth API client (Retrofit + models) ready
+- RAM slider, Java runtime, Renderer, JVM args in Settings
+- Offline account create UI
+- Placeholder profiles & installed mods list
+
+See [docs/ROADMAP.md](docs/ROADMAP.md) for the full phased plan.
+
+**Next:** Local storage for profiles + real Modrinth search & download into profile folders.
+
+---
+
 ## Vision & Goals
 
 - Smooth Java Edition experience on modern Android devices
-- Horizontal-first UI (landscape optimized, with portrait support)
+- Horizontal-first UI (landscape optimized)
 - Direct download of **Mods / Resource Packs / Shaders / Texture Packs** from **Modrinth API** and **CurseForge API** straight into the correct instance folders
 - Profile system where each profile shows its own mods list with Delete / Move options
 - Skin management similar to Battly
@@ -23,110 +41,56 @@ Inspired by **PojavLauncher / Amethyst** (core runtime) and **Battly Launcher** 
 - RAM customization, Java runtime selection, renderer options, and all major Battly-style settings
 - Support for almost all Java versions (Vanilla) + Fabric / Forge / NeoForge / OptiFine / Quilt
 - Optimized engine layer (based on proven mobile OpenGL translation + OpenJDK ports)
-- Server hosting / local multiplayer helpers (Battly Worlds style exploration planned)
-- Zero unnecessary friction – downloads go directly where they belong
+- Server hosting / local multiplayer helpers
 
 **Important Reality Check:**  
-A full custom Java + OpenGL engine from absolute zero is a multi-year team effort. RemomLauncher will start by leveraging the mature, battle-tested runtime stack from the open-source community (Pojav/Amethyst/Mojo lineage + MobileGL / GL4ES / ANGLE / Mesa options) and then layer a completely new, blue-themed horizontal UI + modern content management on top. This is the only practical path to a stable, playable launcher.
+A full custom Java + OpenGL engine from absolute zero is a multi-year team effort. RemomLauncher starts by leveraging the mature runtime stack from the open-source community (Pojav/Amethyst/Mojo lineage + MobileGL / GL4ES / ANGLE) and then layers a completely new blue-themed horizontal UI + modern content management on top.
 
 ---
 
-## Planned Feature List
+## How to Build (once Android Studio is set up)
 
-### Core
-- [ ] Horizontal blue-themed Material 3 / custom UI
-- [ ] Profile creation for all major Minecraft versions
-- [ ] Automatic download of game jars, assets, libraries
-- [ ] Microsoft OAuth login + Offline accounts
-- [ ] Skin selector & uploader (Battly-style)
-- [ ] Pre-configured + fully editable control layouts
-- [ ] Control import / export / add button
-- [ ] RAM slider + advanced JVM arguments
-- [ ] Renderer selection (MobileGL, GL4ES, ANGLE, etc.)
-- [ ] Java runtime management (bundled + custom)
-
-### Content Management
-- [ ] Modrinth API search + one-click install (mods, resource packs, shaders, datapacks)
-- [ ] CurseForge API search + one-click install (requires user API key or proxy)
-- [ ] Per-profile mods list with Delete / Move / Enable-Disable
-- [ ] Resource packs / Shaders / Texture packs management
-- [ ] MRPACK / CurseForge ZIP import
-
-### Gameplay & Extra
-- [ ] Smooth loading screen
-- [ ] Server list + quick join
-- [ ] Local server hosting helpers / world sharing (inspired by Battly Worlds)
-- [ ] Controller support (Xbox, PlayStation, Switch style mapping)
-- [ ] Performance monitoring (FPS, memory)
-- [ ] Custom backgrounds / themes
-
-### Engine / Runtime
-- [ ] Optimized OpenJDK mobile ports
-- [ ] Support for Fabric, Forge, NeoForge, OptiFine, Quilt, Vanilla
-- [ ] Modern LWJGL + input pipeline
-- [ ] TouchController / Controlify friendly
-
----
-
-## Architecture (Planned)
-
-```
-RemomLauncher/
-├── app/                          # Android application module
-│   ├── ui/                       # Horizontal Compose / View-based blue UI
-│   ├── accounts/                 # Microsoft + Offline
-│   ├── profiles/                 # Instance / profile manager
-│   ├── content/                  # Modrinth + CurseForge clients
-│   ├── controls/                 # On-screen control editor
-│   └── settings/                 # RAM, JVM, renderer, etc.
-├── runtime/                      # Adapted from Amethyst / Pojav lineage
-│   ├── jre/                      # OpenJDK mobile builds
-│   ├── gl/                       # MobileGL / GL4ES / ANGLE wrappers
-│   └── launch/                   # Game process launcher
-├── docs/
-└── README.md
+```bash
+git clone https://github.com/anjalifredy-ai/REMONLAUNCHER-JAVA.git
+cd REMONLAUNCHER-JAVA
+# Open in Android Studio → Sync Gradle → Run on device/emulator (landscape preferred)
 ```
 
+Note: Launcher icons are still placeholder. Add `mipmap` resources before release.
+
 ---
 
-## Status
+## Project Structure
 
-**Current Stage:** Project scaffolding & roadmap (October 2026)
-
-This repository was initialized to host the full development of RemomLauncher.  
-Next steps:
-1. Set up Android project structure with Compose horizontal layout
-2. Integrate a stable runtime backend (Amethyst / Mojo / FoldCraft style)
-3. Implement Modrinth client first (easier, no key required for public endpoints)
-4. Build profile + mods management UI
-5. Iterate on controls and polish
+```
+app/
+├── src/main/java/com/remom/launcher/
+│   ├── MainActivity.kt
+│   ├── ui/
+│   │   ├── theme/          # Blue dark theme
+│   │   ├── navigation/     # Horizontal NavigationRail
+│   │   └── screens/        # Home, Profiles, Mods, Accounts, Settings
+│   └── data/
+│       ├── NetworkModule.kt
+│       └── modrinth/       # ModrinthApi + models
+docs/ROADMAP.md
+```
 
 ---
 
 ## Credits & Upstream
 
-This project stands on the shoulders of giants:
-
-- **PojavLauncherTeam / AngelAuraMC (Amethyst)** – Core mobile Java runtime & OpenGL translation foundation
-- **Boardwalk** – Original concept
-- **Battly Launcher** – UX inspiration for skins, workspace, and management features
-- **Modrinth** – Excellent public API for content
-- **CurseForge** – Content ecosystem (API key required)
-- OpenJDK, LWJGL, SDL, Mesa, ANGLE, MobileGL, GL4ES and all related mobile graphics projects
-
----
-
-## Contributing
-
-The project is young. Issues, feature requests, UI mockups, and PRs are welcome once the basic structure is in place.
+- **PojavLauncherTeam / AngelAuraMC (Amethyst)** – Core mobile Java runtime foundation
+- **Battly Launcher** – UX inspiration
+- **Modrinth** – Public API for content
+- OpenJDK, LWJGL, MobileGL, GL4ES, ANGLE and related projects
 
 ---
 
 ## Disclaimer
 
 RemomLauncher is **not** affiliated with Mojang Studios, Microsoft, CurseForge, or Modrinth.  
-Minecraft is a trademark of Mojang Studios.  
-Use at your own risk. Always respect the licenses of the content you download.
+Minecraft is a trademark of Mojang Studios. Use at your own risk.
 
 ---
 
