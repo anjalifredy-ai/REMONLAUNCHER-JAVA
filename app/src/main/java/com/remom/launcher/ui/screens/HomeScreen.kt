@@ -1,12 +1,13 @@
 package com.remom.launcher.ui.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -16,16 +17,21 @@ import androidx.navigation.NavController
 import com.remom.launcher.ui.theme.RemomAccent
 import com.remom.launcher.ui.theme.RemomBluePrimary
 import com.remom.launcher.ui.theme.RemomSurface
+import com.remom.launcher.ui.viewmodel.LauncherViewModel
 
 @Composable
-fun HomeScreen(navController: NavController) {
+fun HomeScreen(navController: NavController, viewModel: LauncherViewModel) {
+    val profiles by viewModel.profiles.collectAsState()
+    val selectedId by viewModel.selectedProfileId.collectAsState()
+    val selectedProfile = profiles.find { it.id == selectedId }
+    val accounts by viewModel.accounts.collectAsState()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        // Header
         Text(
             text = "RemomLauncher",
             style = MaterialTheme.typography.headlineLarge,
@@ -40,7 +46,6 @@ fun HomeScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Quick Play Card
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -57,25 +62,27 @@ fun HomeScreen(navController: NavController) {
             ) {
                 Column {
                     Text(
-                        text = "Ready to Play",
+                        text = if (selectedProfile != null) "Ready to Play" else "Select a Profile",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "Select a profile and launch",
+                        text = selectedProfile?.let { "${it.name} • ${it.versionId} • ${it.loader}" }
+                            ?: "Go to Profiles and create one",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "No profile selected",
+                        text = if (accounts.isNotEmpty()) "Account: ${accounts.first().username}" else "No account",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                     )
                 }
 
                 Button(
-                    onClick = { /* TODO: Launch game */ },
+                    onClick = { /* TODO: Launch game with selected profile */ },
+                    enabled = selectedProfile != null,
                     colors = ButtonDefaults.buttonColors(containerColor = RemomAccent),
                     modifier = Modifier.height(56.dp)
                 ) {
@@ -86,35 +93,33 @@ fun HomeScreen(navController: NavController) {
             }
         }
 
-        // Feature cards row
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             FeatureCard(
                 title = "Profiles",
-                subtitle = "Create & manage versions",
+                subtitle = "${profiles.size} profiles",
                 modifier = Modifier.weight(1f),
                 onClick = { navController.navigate("profiles") }
             )
             FeatureCard(
                 title = "Mods",
-                subtitle = "Modrinth + CurseForge",
+                subtitle = "Modrinth ready",
                 modifier = Modifier.weight(1f),
                 onClick = { navController.navigate("mods") }
             )
             FeatureCard(
                 title = "Accounts",
-                subtitle = "Microsoft + Offline",
+                subtitle = "${accounts.size} accounts",
                 modifier = Modifier.weight(1f),
                 onClick = { navController.navigate("accounts") }
             )
         }
 
-        // Status footer
         Spacer(modifier = Modifier.weight(1f))
         Text(
-            text = "v0.1.0-alpha • Engine: Coming soon • Optimized for Android",
+            text = "v0.1.0-alpha • Phase 1 in progress • Storage + Modrinth live",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
         )
