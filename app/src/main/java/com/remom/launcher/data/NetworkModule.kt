@@ -1,6 +1,7 @@
 package com.remom.launcher.data
 
 import com.remom.launcher.data.modrinth.ModrinthApi
+import com.remom.launcher.data.mojang.MojangApi
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -10,6 +11,7 @@ import java.util.concurrent.TimeUnit
 object NetworkModule {
 
     private const val MODRINTH_BASE = "https://api.modrinth.com/v2/"
+    private const val MOJANG_BASE = "https://piston-meta.mojang.com/"
 
     private val logging = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BASIC
@@ -34,5 +36,14 @@ object NetworkModule {
             .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(ModrinthApi::class.java)
+    }
+
+    val mojangApi: MojangApi by lazy {
+        Retrofit.Builder()
+            .baseUrl(MOJANG_BASE)
+            .client(client)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(MojangApi::class.java)
     }
 }
