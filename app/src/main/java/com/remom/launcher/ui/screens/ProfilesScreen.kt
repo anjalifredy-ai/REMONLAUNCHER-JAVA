@@ -3,7 +3,9 @@ package com.remom.launcher.ui.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -21,15 +23,25 @@ import com.remom.launcher.ui.viewmodel.LauncherViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfilesScreen(viewModel: LauncherViewModel) {
     val profiles by viewModel.profiles.collectAsState()
     val selectedId by viewModel.selectedProfileId.collectAsState()
+    val versionsState by viewModel.versionsState.collectAsState()
 
     var showCreateDialog by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf("") }
-    var newVersion by remember { mutableStateOf("1.21.3") }
+    var newVersion by remember { mutableStateOf("") }
     var newLoader by remember { mutableStateOf("Vanilla") }
+    var versionExpanded by remember { mutableStateOf(false) }
+
+    // Set default version when manifest loads
+    LaunchedEffect(versionsState.latestRelease) {
+        if (newVersion.isBlank() && versionsState.latestRelease != null) {
+            newVersion = versionsState.latestRelease!!
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -47,13 +59,28 @@ fun ProfilesScreen(viewModel: LauncherViewModel) {
                 fontWeight = FontWeight.Bold
             )
             Button(
-                onClick = { showCreateDialog = true },
+                onClick = {
+                    if (newVersion.isBlank()) {
+                        newVersion = versionsState.latestRelease ?: "1.21.3"
+                    }
+                    showCreateDialog = true
+                },
                 colors = ButtonDefaults.buttonColors(containerColor = RemomAccent)
             ) {
                 Icon(Icons.Default.Add, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("New Profile")
             }
+        }
+
+        if (versionsState.isLoading) {
+            Text("Loading Minecraft versions...", style = MaterialTheme.typography.bodySmall)
+        } else if (versionsState.releases.isNotEmpty()) {
+            Text(
+                "${versionsState.releases.size} release versions available",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -69,7 +96,7 @@ fun ProfilesScreen(viewModel: LauncherViewModel) {
                         profile = profile,
                         isSelected = profile.id == selectedId,
                         onSelect = { viewModel.selectProfile(profile.id) },
-                        onPlay = { viewModel.selectProfile(profile.id) /* TODO: launch */ },
+                        onPlay = { viewModel.selectProfile(profile.id) },
                         onDelete = { viewModel.deleteProfile(profile.id) }
                     )
                 }
@@ -82,7 +109,10 @@ fun ProfilesScreen(viewModel: LauncherViewModel) {
             onDismissRequest = { showCreateDialog = false },
             title = { Text("Create Profile") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                     OutlinedTextField(
                         value = newName,
                         onValueChange = { newName = it },
@@ -90,13 +120,50 @@ fun ProfilesScreen(viewModel: LauncherViewModel) {
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    OutlinedTextField(
-                        value = newVersion,
-                        onValueChange = { newVersion = it },
-                        label = { Text("Minecraft Version") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+
+                    // Version dropdown from Mojang manifest
+                    ExposedDropdownMenuBox(
+                        expanded = versionExpanded,
+                        onExpandedChange = { versionExpanded = it }
+                    ) {
+                        OutlinedTextField(
+                            value = newVersion,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Minecraft Version") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = versionExpanded) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = versionExpanded,
+                            onDismissRequest = { versionExpanded = false }
+                        ) {
+                            val versionList = if (versionsState.releases.isNotEmpty()) {
+                                versionsState.releases
+                            } else {
+                                emptyList()
+                            }
+                            if (versionList.isEmpty()) {
+                                DropdownMenuItem(
+                                    text = { Text(if (versionsState.isLoading) "Loading..." else "No versions loaded") },
+                                    onClick = {}
+                                )
+                            } else {
+                                versionList.take(40).forEach { entry ->
+                                    DropdownMenuItem(
+                                        text = { Text("${entry.id} (${entry.type})") },
+                                        onClick = {
+                                            newVersion = entry.id
+                                            versionExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     Text("Loader", style = MaterialTheme.typography.labelMedium)
                     listOf("Vanilla", "Fabric", "Forge", "NeoForge", "OptiFine", "Quilt").forEach { loader ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
