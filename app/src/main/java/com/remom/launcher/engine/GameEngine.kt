@@ -6,6 +6,7 @@ import android.util.Log
 import com.remom.launcher.data.profile.AccountInfo
 import com.remom.launcher.data.profile.GameProfile
 import com.remom.launcher.data.profile.LauncherSettings
+import com.remom.launcher.engine.loaders.LoaderInstaller
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,21 +14,16 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 
 /**
- * High-level engine facade used by the UI.
- *
- * Flow:
- * 1. prepare(versionId)  → downloads client + libs (GameInstaller)
- * 2. launch(...)         → builds LaunchConfig → RuntimeBridge.startGame
- *
- * When RuntimeBridge is swapped from Stub → real Amethyst/Mojo backend,
- * the UI does not need to change.
+ * Engine facade: install official Minecraft + optional loader, then hand off to runtime.
+ * Default runtime = AmethystRuntimeBridge (playable only after Amethyst linked / installed).
  */
 class GameEngine(
     context: Context,
-    private val runtime: RuntimeBridge = StubRuntimeBridge()
+    private val runtime: RuntimeBridge = AmethystRuntimeBridge()
 ) {
     private val paths = GamePaths(context)
     private val installer = GameInstaller(paths)
+    private val loaderInstaller = LoaderInstaller(paths)
     private val launchBuilder = LaunchBuilder(paths)
 
     private val _state = MutableStateFlow(LaunchState.IDLE)
@@ -41,10 +37,6 @@ class GameEngine(
 
     fun isVersionReady(versionId: String): Boolean = installer.isVersionReady(versionId)
 
-    /**
-     * Download everything needed for [versionId].
-     * Safe to call multiple times (skips existing verified files).
-     */
     suspend fun prepare(versionId: String) {
         _state.value = LaunchState.PREPARING
         _lastMessage.value = "Preparing $versionId..."
@@ -55,7 +47,7 @@ class GameEngine(
                 is DownloadProgress.Stage ->
                     _lastMessage.value = "${event.name}: ${event.detail}"
                 is DownloadProgress.Overall ->
-                    _lastMessage.value = "Libraries ${event.completedFiles}/${event.totalFiles}"
+                    _lastMessage.value = "${event.message} (${event.completedFiles}/${event.totalFiles})"
                 is DownloadProgress.Done -> {
                     _state.value = if (event.success) LaunchState.READY else LaunchState.ERROR
                     _lastMessage.value = event.message
@@ -70,9 +62,16 @@ class GameEngine(
         }
     }
 
-    /**
-     * Full launch: prepare if needed, build config, hand off to runtime.
-     */
+    suspend fun prepareLoader(loader: String, gameVersion: String) {
+        if (loader.equals("Vanilla", true) || loader.isBlank()) return
+        _lastMessage.value = "Installing $loader..."
+        loaderInstaller.install(loader, gameVersion).collect { event ->
+            _progress.value = event
+            if (event is DownloadProgress.Done) _lastMessage.value = event.message
+            if (event is DownloadProgress.Error) _lastMessage.value = event.message
+        }
+    }
+
     suspend fun launch(
         activity: Activity,
         profile: GameProfile,
@@ -80,25 +79,41 @@ class GameEngine(
         settings: LauncherSettings
     ): Boolean = withContext(Dispatchers.IO) {
         try {
-            if (!installer.isVersionReady(profile.versionId)) {
-                prepare(profile.versionId)
+            val baseVersion = profile.versionId
+                .substringBefore("-fabric")
+                .substringBefore("-forge")
+                .substringBefore("-neoforge")
+                .substringBefore("-quilt")
+
+            if (!installer.isVersionReady(baseVersion) && !installer.isVersionReady(profile.versionId)) {
+                prepare(baseVersion)
                 if (_state.value == LaunchState.ERROR) return@withContext false
+            }
+
+            if (!profile.loader.equals("Vanilla", true)) {
+                prepareLoader(profile.loader, baseVersion)
             }
 
             _state.value = LaunchState.STARTING
             _lastMessage.value = "Building launch config..."
 
-            val config = launchBuilder.build(profile, account, settings)
+            val opt = AmethystRuntimeBridge.optimizedJvmExtras(settings.allocatedRamMb)
+                .joinToString(" ")
+            val tuned = settings.copy(
+                jvmArgs = (settings.jvmArgs + " " + opt).trim()
+            )
 
-            _lastMessage.value = "Starting runtime..."
+            val config = launchBuilder.build(profile, account, tuned)
+
+            _lastMessage.value = "Starting Amethyst runtime bridge..."
             val ok = runtime.startGame(activity, config)
 
             if (ok) {
                 _state.value = LaunchState.RUNNING
-                _lastMessage.value = "Game running"
+                _lastMessage.value = runtime.getLastError() ?: "Runtime / game window started"
             } else {
                 _state.value = LaunchState.ERROR
-                _lastMessage.value = runtime.getLastError() ?: "Runtime failed to start"
+                _lastMessage.value = runtime.getLastError() ?: "Runtime failed"
             }
             ok
         } catch (e: Exception) {
