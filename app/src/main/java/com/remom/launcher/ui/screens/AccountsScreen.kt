@@ -14,22 +14,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.remom.launcher.ui.theme.RemomAccent
 import com.remom.launcher.ui.theme.RemomSurface
-
-data class Account(
-    val id: String,
-    val username: String,
-    val type: String // "Microsoft" or "Offline"
-)
+import com.remom.launcher.ui.viewmodel.LauncherViewModel
 
 @Composable
-fun AccountsScreen() {
-    var accounts by remember {
-        mutableStateOf(
-            listOf(
-                Account("1", "Player123", "Offline")
-            )
-        )
-    }
+fun AccountsScreen(viewModel: LauncherViewModel) {
+    val accounts by viewModel.accounts.collectAsState()
     var showOfflineDialog by remember { mutableStateOf(false) }
     var offlineName by remember { mutableStateOf("") }
 
@@ -46,13 +35,12 @@ fun AccountsScreen() {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Login buttons
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Button(
-                onClick = { /* TODO: Microsoft OAuth flow */ },
+                onClick = { /* TODO: Microsoft OAuth */ },
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(containerColor = RemomAccent)
             ) {
@@ -76,35 +64,40 @@ fun AccountsScreen() {
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        accounts.forEach { account ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = RemomSurface)
-            ) {
-                Row(
+        if (accounts.isEmpty()) {
+            Text(
+                "No accounts yet. Add an offline account or login with Microsoft.",
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+            )
+        } else {
+            accounts.forEach { account ->
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(vertical = 4.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = RemomSurface)
                 ) {
-                    Icon(
-                        Icons.Default.AccountCircle,
-                        contentDescription = null,
-                        modifier = Modifier.size(40.dp),
-                        tint = RemomAccent
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(account.username, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        Text(account.type, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-                    }
-                    TextButton(onClick = {
-                        accounts = accounts.filter { it.id != account.id }
-                    }) {
-                        Text("Remove", color = MaterialTheme.colorScheme.error)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.AccountCircle,
+                            contentDescription = null,
+                            modifier = Modifier.size(40.dp),
+                            tint = RemomAccent
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(account.username, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text(account.type, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                        }
+                        TextButton(onClick = { viewModel.removeAccount(account.id) }) {
+                            Text("Remove", color = MaterialTheme.colorScheme.error)
+                        }
                     }
                 }
             }
@@ -126,22 +119,14 @@ fun AccountsScreen() {
             confirmButton = {
                 TextButton(onClick = {
                     if (offlineName.isNotBlank()) {
-                        accounts = accounts + Account(
-                            id = System.currentTimeMillis().toString(),
-                            username = offlineName,
-                            type = "Offline"
-                        )
+                        viewModel.addOfflineAccount(offlineName)
                         offlineName = ""
                         showOfflineDialog = false
                     }
-                }) {
-                    Text("Create")
-                }
+                }) { Text("Create") }
             },
             dismissButton = {
-                TextButton(onClick = { showOfflineDialog = false }) {
-                    Text("Cancel")
-                }
+                TextButton(onClick = { showOfflineDialog = false }) { Text("Cancel") }
             }
         )
     }
