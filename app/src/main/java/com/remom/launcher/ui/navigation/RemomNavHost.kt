@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -28,6 +29,7 @@ import com.remom.launcher.ui.screens.HomeScreen
 import com.remom.launcher.ui.screens.ModsScreen
 import com.remom.launcher.ui.screens.ProfilesScreen
 import com.remom.launcher.ui.screens.SettingsScreen
+import com.remom.launcher.ui.viewmodel.LauncherViewModel
 
 sealed class Screen(val route: String, val label: String) {
     data object Home : Screen("home", "Home")
@@ -38,7 +40,9 @@ sealed class Screen(val route: String, val label: String) {
 }
 
 @Composable
-fun RemomNavHost() {
+fun RemomNavHost(
+    viewModel: LauncherViewModel = viewModel()
+) {
     val navController = rememberNavController()
     val items = listOf(
         Screen.Home to Icons.Default.Home,
@@ -49,7 +53,6 @@ fun RemomNavHost() {
     )
 
     Row(modifier = Modifier.fillMaxSize()) {
-        // Horizontal layout: Navigation Rail on the left (perfect for landscape)
         NavigationRail(
             modifier = Modifier.padding(vertical = 8.dp)
         ) {
@@ -79,11 +82,11 @@ fun RemomNavHost() {
             startDestination = Screen.Home.route,
             modifier = Modifier.weight(1f)
         ) {
-            composable(Screen.Home.route) { HomeScreen(navController) }
-            composable(Screen.Profiles.route) { ProfilesScreen() }
-            composable(Screen.Mods.route) { ModsScreen() }
-            composable(Screen.Accounts.route) { AccountsScreen() }
-            composable(Screen.Settings.route) { SettingsScreen() }
+            composable(Screen.Home.route) { HomeScreen(navController, viewModel) }
+            composable(Screen.Profiles.route) { ProfilesScreen(viewModel) }
+            composable(Screen.Mods.route) { ModsScreen(viewModel) }
+            composable(Screen.Accounts.route) { AccountsScreen(viewModel) }
+            composable(Screen.Settings.route) { SettingsScreen(viewModel) }
         }
     }
 }
