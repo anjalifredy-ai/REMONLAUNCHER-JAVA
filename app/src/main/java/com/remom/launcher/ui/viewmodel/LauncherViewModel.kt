@@ -1,5 +1,6 @@
 package com.remom.launcher.ui.viewmodel
 
+import android.app.Activity
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -11,6 +12,9 @@ import com.remom.launcher.data.profile.AccountInfo
 import com.remom.launcher.data.profile.GameProfile
 import com.remom.launcher.data.profile.LauncherSettings
 import com.remom.launcher.data.profile.ProfileRepository
+import com.remom.launcher.engine.DownloadProgress
+import com.remom.launcher.engine.GameEngine
+import com.remom.launcher.engine.LaunchState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -39,6 +43,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     private val repo = ProfileRepository(application)
     private val modrinth = ModrinthRepository()
     private val mojang = MojangRepository()
+    private val engine = GameEngine(application)
 
     private val _profiles = MutableStateFlow<List<GameProfile>>(emptyList())
     val profiles: StateFlow<List<GameProfile>> = _profiles.asStateFlow()
@@ -57,6 +62,10 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     private val _versionsState = MutableStateFlow(VersionsUiState())
     val versionsState: StateFlow<VersionsUiState> = _versionsState.asStateFlow()
+
+    val launchState: StateFlow<LaunchState> = engine.state
+    val launchProgress: StateFlow<DownloadProgress?> = engine.progress
+    val launchMessage: StateFlow<String?> = engine.lastMessage
 
     init {
         refreshAll()
@@ -77,6 +86,37 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             loadInstalledMods()
         }
     }
+
+    // ---------- Engine / Launch ----------
+
+    fun prepareVersion(versionId: String) {
+        viewModelScope.launch {
+            engine.prepare(versionId)
+        }
+    }
+
+    fun play(activity: Activity) {
+        viewModelScope.launch {
+            val profileId = _selectedProfileId.value
+            val profile = _profiles.value.find { it.id == profileId }
+            if (profile == null) return@launch
+
+            val account = _accounts.value.firstOrNull() ?: AccountInfo(
+                id = "guest",
+                username = "Player",
+                type = "Offline",
+                uuid = UUID.randomUUID().toString()
+            )
+
+            engine.launch(activity, profile, account, _settings.value)
+        }
+    }
+
+    fun stopGame() {
+        engine.stop()
+    }
+
+    fun isVersionReady(versionId: String): Boolean = engine.isVersionReady(versionId)
 
     // ---------- Mojang Versions ----------
 
@@ -247,7 +287,6 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    /** Backward-compatible alias */
     fun downloadMod(hit: ModrinthHit, gameVersion: String? = null, loader: String? = null) {
         downloadContent(hit, "mod", gameVersion, loader)
     }
