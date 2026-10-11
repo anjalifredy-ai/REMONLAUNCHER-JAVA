@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="remom_blue_primary">#FF1976D2</color>
+    <color name="remom_blue_dark">#FF0D47A1</color>
+    <color name="remom_blue_light">#FF42A5F5</color>
+    <color name="remom_background">#FF0A1929</color>
+    <color name="remom_surface">#FF132F4C</color>
+    <color name="remom_on_surface">#FFE3F2FD</color>
+    <color name="remom_accent">#FF00BCD4</color>
+</resources>
