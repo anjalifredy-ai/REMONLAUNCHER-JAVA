@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.RemomLauncher" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">#FF0D47A1</item>
+        <item name="android:navigationBarColor">#FF0D47A1</item>
+        <item name="android:windowBackground">#FF0A1929</item>
+        <item name="android:colorPrimary">#FF1976D2</item>
+    </style>
+</resources>
