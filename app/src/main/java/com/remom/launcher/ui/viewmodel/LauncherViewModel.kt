@@ -5,7 +5,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.remom.launcher.data.modrinth.ModrinthHit
 import com.remom.launcher.data.modrinth.ModrinthRepository
-import com.remom.launcher.data.modrinth.ModrinthVersion
+import com.remom.launcher.data.mojang.MojangRepository
+import com.remom.launcher.data.mojang.VersionEntry
 import com.remom.launcher.data.profile.AccountInfo
 import com.remom.launcher.data.profile.GameProfile
 import com.remom.launcher.data.profile.LauncherSettings
@@ -25,10 +26,19 @@ data class ModsUiState(
     val downloading: String? = null
 )
 
+data class VersionsUiState(
+    val isLoading: Boolean = false,
+    val releases: List<VersionEntry> = emptyList(),
+    val allVersions: List<VersionEntry> = emptyList(),
+    val latestRelease: String? = null,
+    val error: String? = null
+)
+
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repo = ProfileRepository(application)
     private val modrinth = ModrinthRepository()
+    private val mojang = MojangRepository()
 
     private val _profiles = MutableStateFlow<List<GameProfile>>(emptyList())
     val profiles: StateFlow<List<GameProfile>> = _profiles.asStateFlow()
@@ -45,8 +55,12 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     private val _modsState = MutableStateFlow(ModsUiState())
     val modsState: StateFlow<ModsUiState> = _modsState.asStateFlow()
 
+    private val _versionsState = MutableStateFlow(VersionsUiState())
+    val versionsState: StateFlow<VersionsUiState> = _versionsState.asStateFlow()
+
     init {
         refreshAll()
+        loadVersions()
     }
 
     fun refreshAll() {
@@ -61,6 +75,32 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             _settings.value = repo.loadSettings()
 
             loadInstalledMods()
+        }
+    }
+
+    // ---------- Mojang Versions ----------
+
+    fun loadVersions(includeSnapshots: Boolean = false) {
+        viewModelScope.launch {
+            _versionsState.value = _versionsState.value.copy(isLoading = true, error = null)
+            val result = mojang.getAllVersions(includeSnapshots = includeSnapshots, includeOld = false)
+            result.fold(
+                onSuccess = { list ->
+                    val releases = list.filter { it.type == "release" }
+                    _versionsState.value = VersionsUiState(
+                        isLoading = false,
+                        releases = releases,
+                        allVersions = list,
+                        latestRelease = mojang.getLatestRelease() ?: releases.firstOrNull()?.id
+                    )
+                },
+                onFailure = { e ->
+                    _versionsState.value = _versionsState.value.copy(
+                        isLoading = false,
+                        error = e.message ?: "Failed to load versions"
+                    )
+                }
+            )
         }
     }
 
@@ -125,7 +165,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    // ---------- Mods ----------
+    // ---------- Mods / Content ----------
 
     fun loadInstalledMods() {
         viewModelScope.launch {
@@ -158,7 +198,12 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun downloadMod(hit: ModrinthHit, gameVersion: String? = null, loader: String? = null) {
+    fun downloadContent(
+        hit: ModrinthHit,
+        projectType: String = "mod",
+        gameVersion: String? = null,
+        loader: String? = null
+    ) {
         viewModelScope.launch {
             val profileId = _selectedProfileId.value
             if (profileId == null) {
@@ -179,13 +224,18 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             }
 
             val best = versions.first()
-            val modsDir = repo.getModsDir(profileId)
-            val downloadResult = modrinth.downloadVersion(best, modsDir)
+            val targetDir = when (projectType) {
+                "resourcepack" -> repo.getResourcePacksDir(profileId)
+                "shader" -> repo.getShaderPacksDir(profileId)
+                else -> repo.getModsDir(profileId)
+            }
+
+            val downloadResult = modrinth.downloadVersion(best, targetDir)
 
             downloadResult.fold(
                 onSuccess = {
                     _modsState.value = _modsState.value.copy(downloading = null)
-                    loadInstalledMods()
+                    if (projectType == "mod") loadInstalledMods()
                 },
                 onFailure = { e ->
                     _modsState.value = _modsState.value.copy(
@@ -195,6 +245,11 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                 }
             )
         }
+    }
+
+    /** Backward-compatible alias */
+    fun downloadMod(hit: ModrinthHit, gameVersion: String? = null, loader: String? = null) {
+        downloadContent(hit, "mod", gameVersion, loader)
     }
 
     fun deleteInstalledMod(file: File) {
