@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">RemomLauncher</string>
+    <string name="play">Play</string>
+    <string name="profiles">Profiles</string>
+    <string name="mods">Mods</string>
+    <string name="settings">Settings</string>
+    <string name="accounts">Accounts</string>
+    <string name="skins">Skins</string>
+    <string name="controls">Controls</string>
+    <string name="servers">Servers</string>
+    <string name="download">Download</string>
+    <string name="search_modrinth">Search Modrinth</string>
+    <string name="offline_account">Offline Account</string>
+    <string name="microsoft_login">Microsoft Login</string>
+</resources>
