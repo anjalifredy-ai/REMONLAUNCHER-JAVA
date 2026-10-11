@@ -1,5 +1,6 @@
 package com.remom.launcher.ui.screens
 
+import android.app.Activity
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -10,10 +11,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.remom.launcher.engine.LaunchState
 import com.remom.launcher.ui.theme.RemomAccent
 import com.remom.launcher.ui.theme.RemomBluePrimary
 import com.remom.launcher.ui.theme.RemomSurface
@@ -25,6 +28,11 @@ fun HomeScreen(navController: NavController, viewModel: LauncherViewModel) {
     val selectedId by viewModel.selectedProfileId.collectAsState()
     val selectedProfile = profiles.find { it.id == selectedId }
     val accounts by viewModel.accounts.collectAsState()
+    val launchState by viewModel.launchState.collectAsState()
+    val launchMessage by viewModel.launchMessage.collectAsState()
+    val context = LocalContext.current
+
+    val isBusy = launchState == LaunchState.PREPARING || launchState == LaunchState.STARTING
 
     Column(
         modifier = Modifier
@@ -49,7 +57,7 @@ fun HomeScreen(navController: NavController, viewModel: LauncherViewModel) {
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(160.dp),
+                .height(180.dp),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = RemomSurface)
         ) {
@@ -60,9 +68,16 @@ fun HomeScreen(navController: NavController, viewModel: LauncherViewModel) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = if (selectedProfile != null) "Ready to Play" else "Select a Profile",
+                        text = when (launchState) {
+                            LaunchState.PREPARING -> "Downloading..."
+                            LaunchState.STARTING -> "Starting..."
+                            LaunchState.RUNNING -> "Running"
+                            LaunchState.ERROR -> "Error"
+                            LaunchState.READY -> "Ready"
+                            else -> if (selectedProfile != null) "Ready to Play" else "Select a Profile"
+                        },
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -72,23 +87,37 @@ fun HomeScreen(navController: NavController, viewModel: LauncherViewModel) {
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = if (accounts.isNotEmpty()) "Account: ${accounts.first().username}" else "No account",
+                        text = launchMessage
+                            ?: if (accounts.isNotEmpty()) "Account: ${accounts.first().username}" else "No account",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                     )
+                    if (isBusy) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth(0.9f))
+                    }
                 }
 
                 Button(
-                    onClick = { /* TODO: Launch game with selected profile */ },
-                    enabled = selectedProfile != null,
+                    onClick = {
+                        val activity = context as? Activity
+                        if (activity != null) {
+                            viewModel.play(activity)
+                        }
+                    },
+                    enabled = selectedProfile != null && !isBusy,
                     colors = ButtonDefaults.buttonColors(containerColor = RemomAccent),
                     modifier = Modifier.height(56.dp)
                 ) {
                     Icon(Icons.Default.PlayArrow, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("PLAY", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        if (isBusy) "..." else "PLAY",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
@@ -119,7 +148,7 @@ fun HomeScreen(navController: NavController, viewModel: LauncherViewModel) {
 
         Spacer(modifier = Modifier.weight(1f))
         Text(
-            text = "v0.1.0-alpha • Phase 1 in progress • Storage + Modrinth live",
+            text = "v0.1.0-alpha • Engine: installer + launch pipeline live • Runtime backend next",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
         )
