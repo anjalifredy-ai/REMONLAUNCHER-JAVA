@@ -1,39 +1,26 @@
 package com.remom.launcher.engine
 
 import android.app.Activity
+import android.content.Intent
 import android.util.Log
 import android.view.Surface
+import com.remom.launcher.ui.GameActivity
 
 /**
  * Bridge between the Kotlin launcher and the native Minecraft runtime.
  *
  * REALITY:
- * Running Minecraft Java on Android requires:
- * 1. OpenJDK / mobile JRE (ARM64)
- * 2. OpenGL ES translation layer (MobileGL / GL4ES / ANGLE)
- * 3. LWJGL natives patched for Android
- * 4. Input (touch → mouse/keyboard) pipeline
- * 5. Audio (OpenAL)
- *
- * These pieces live in projects like Amethyst, MojoLauncher, FoldCraftLauncher.
- * RemomLauncher will integrate one of those backends rather than reinventing them.
- *
- * This class is the contract the rest of the app talks to.
- * When the native backend is linked, implement the methods with JNI / AIDL.
+ * Running Minecraft Java on Android requires OpenJDK + GL translation + LWJGL natives.
+ * That stack lives in Amethyst-Android / Pojav lineage (hundreds of thousands of lines).
+ * Remom opens a real GameActivity (window + Surface). When the native backend is linked,
+ * rendering goes into that Surface.
  */
 interface RuntimeBridge {
 
-    /** Whether a usable runtime (JRE + GL) is installed on device */
     fun isRuntimeAvailable(): Boolean
 
-    /** Prepare natives / extract if needed */
     fun prepareRuntime(): Boolean
 
-    /**
-     * Start the game process with the given config.
-     * @param activity host activity (for surface / lifecycle)
-     * @param surface optional Surface for rendering (when using dedicated view)
-     */
     fun startGame(
         activity: Activity,
         config: LaunchConfig,
@@ -48,8 +35,8 @@ interface RuntimeBridge {
 }
 
 /**
- * Stub implementation until Amethyst/Mojo-style backend is integrated.
- * Logs the full launch command so we can verify the pipeline end-to-end.
+ * Opens the real GameActivity window and logs full launch config.
+ * Does not execute Java bytecode until Amethyst JRE is linked.
  */
 class StubRuntimeBridge : RuntimeBridge {
 
@@ -67,21 +54,43 @@ class StubRuntimeBridge : RuntimeBridge {
     ): Boolean {
         Log.i(TAG, "======== REMOM LAUNCH CONFIG ========")
         Log.i(TAG, "Profile: ${config.profile.name} (${config.profile.versionId})")
+        Log.i(TAG, "Loader: ${config.profile.loader}")
         Log.i(TAG, "Account: ${config.account.username} (${config.account.type})")
         Log.i(TAG, "Main class: ${config.mainClass}")
-        Log.i(TAG, "Client JAR: ${config.clientJar.absolutePath}")
+        Log.i(TAG, "Client JAR: ${config.clientJar.absolutePath} exists=${config.clientJar.exists()}")
         Log.i(TAG, "Game dir: ${config.gameDir.absolutePath}")
-        Log.i(TAG, "Natives: ${config.nativesDir.absolutePath}")
-        Log.i(TAG, "Renderer: ${config.renderer}")
-        Log.i(TAG, "Classpath entries: ${config.classpath.size}")
+        Log.i(TAG, "Classpath: ${config.classpath.size} jars")
         Log.i(TAG, "JVM: ${config.jvmArgs.joinToString(" ")}")
         Log.i(TAG, "Game: ${config.gameArgs.joinToString(" ")}")
         Log.i(TAG, "=====================================")
 
-        lastError = "Runtime backend not linked yet. " +
-            "Install pipeline works — next step is integrating Amethyst/Mojo JRE + GL layer."
-        running = false
-        return false
+        val msg = buildString {
+            appendLine("Launch pipeline OK.")
+            appendLine("Client JAR on disk: ${config.clientJar.exists()}")
+            appendLine("Classpath jars: ${config.classpath.size}")
+            appendLine()
+            appendLine("JVM would run:")
+            appendLine(config.mainClass)
+            appendLine()
+            appendLine("To actually play Minecraft here:")
+            appendLine("Integrate AngelAuraMC/Amethyst-Android")
+            appendLine("OpenJDK + MobileGL into this Surface.")
+        }
+
+        // Open real fullscreen game window
+        val intent = Intent(activity, GameActivity::class.java).apply {
+            putExtra(GameActivity.EXTRA_VERSION_ID, config.profile.versionId)
+            putExtra(GameActivity.EXTRA_PROFILE_NAME, config.profile.name)
+            putExtra(GameActivity.EXTRA_LOADER, config.profile.loader)
+            putExtra(GameActivity.EXTRA_MAIN_CLASS, config.mainClass)
+            putExtra(GameActivity.EXTRA_MESSAGE, msg)
+        }
+        activity.startActivity(intent)
+
+        running = true
+        lastError = null
+        // Return true so UI shows "window opened" — game pixels need native runtime
+        return true
     }
 
     override fun stopGame() {
